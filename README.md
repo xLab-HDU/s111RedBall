@@ -1,7 +1,7 @@
 # Red Ball
 This repository is a Red Ball game implemented in C++ using SFML and Box2D, built with CMake.
 
-[![Build Status](https://github.com/xLab-HDU/RedBall/actions/workflows/ci.yml/badge.svg)](https://github.com/xLab-HDU/RedBall/actions?workflow=ci build)
+[![Build Status](https://github.com/xLab-HDU/RedBall/actions/workflows/ci.yml/badge.svg)](https://github.com/xLab-HDU/RedBall/actions)
 
 ## How to Use
 
