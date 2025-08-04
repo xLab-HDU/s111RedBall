@@ -1,7 +1,7 @@
-#include <SFML/Graphics.hpp>
-
-#include <box2d/box2d.h>
 #include <iostream>
+#include <SFML/Graphics.hpp>
+#include <box2d/box2d.h>
+
 using namespace sf;
 
 const float SCALE = 30.f;		//MKS物理单位到像素单位的换算因子，表示每米使用30个像素
@@ -10,11 +10,85 @@ const float DEG = 57.29577f;//1弧度等于DEG对应的角度数
 const float DEBUG_DRAW_SCALE = 0.35f; // 缩小比例
 const sf::Vector2f DEBUG_DRAW_OFFSET(300, 50); // y轴向下偏移50像素
 
+Texture t, t1, t2, t3, t4, t5, t6;
+Sprite sGround(t), sPlayer(t1), sBox(t2), sStone(t2), sSwing(t3), sPlatform(t4), sFlag(t5), sBackground(t6);
+
+int jumpCooldown = 0;
+bool groundShowFlag = true;
+bool debugDrawFlag = false;
+bool isBodyContact = false;
+bool isOnGround = false;
+
 // 用户上下文，用于传递 SFML 窗口
 struct DrawContext {
     sf::RenderWindow* window;
     b2DebugDraw* debugDraw;
 };
+
+void LoadMediaData()
+{
+    if (!t.loadFromFile("../data/images/ground.png")) {
+        std::cout << "Failed to load ground texture!" << std::endl;
+    }
+    if (!t1.loadFromFile("../data/images/player.png")) {
+        std::cout << "Failed to load player texture!" << std::endl;
+    }
+    if (!t2.loadFromFile("../data/images/objects1.png")) {
+        std::cout << "Failed to load objects1 texture!" << std::endl;
+    }
+    if (!t3.loadFromFile("../data/images/objects2.png")) {
+        std::cout << "Failed to load objects2 texture!" << std::endl;
+    }
+    if (!t4.loadFromFile("../data/images/platform.png")) {
+        std::cout << "Failed to load platform texture!" << std::endl;
+    }
+    if (!t5.loadFromFile("../data/images/flag.png")) {
+        std::cout << "Failed to load flag texture!" << std::endl;
+    }
+    if (!t6.loadFromFile("../data/images/back.png")) {
+        std::cout << "Failed to load background texture!" << std::endl;
+    }
+
+    t1.setSmooth(true);//因为要做物理接触，这3个对象的纹理，做下模糊处理
+    t2.setSmooth(true);
+    t3.setSmooth(true);
+
+    sGround.setTexture(t, true);
+    sPlayer.setTexture(t1, true);
+    sBox.setTexture(t2, true);
+    sStone.setTexture(t2, true);
+    sSwing.setTexture(t3, true);
+    sPlatform.setTexture(t4, true);
+    sFlag.setTexture(t5, true);
+    sBackground.setTexture(t6, true);
+
+    sBox.setTextureRect(IntRect({ 81,0 }, { 61,61 }));
+    sBox.setOrigin({ 30,30 });
+
+    sPlayer.setTextureRect(IntRect({ 0,160 }, { 32,32 }));
+    sPlayer.setOrigin({ 16,16 });
+
+    sSwing.setTextureRect(IntRect({ 378,0 }, { 28,242 }));
+    sSwing.setOrigin({ 20,121 });
+
+    sStone.setTextureRect(IntRect({ 0,0 }, { 80,80 }));
+    sStone.setOrigin({ 40,40 });
+
+    sGround.setPosition({ 0,320 });
+    sFlag.setPosition({ 587,19 });
+}
+
+void SetWall(int x, int y, int w, int h, b2WorldId myWorldId)
+{
+    b2BodyDef bdef = b2DefaultBodyDef();
+    bdef.enableSleep = true; //设置物理对象可以休眠
+    bdef.isAwake = true; //设置物理对象处于激活状态
+    bdef.position = b2Vec2{ x / SCALE, y / SCALE };
+    b2BodyId groundId = b2CreateBody(myWorldId, &bdef);
+    b2Polygon groundBox = b2MakeBox(w / SCALE, h / SCALE);//实例化一个多边形对象,半个宽度和半个高度作为参数
+    b2ShapeDef groundShapeDef = b2DefaultShapeDef();
+    b2CreatePolygonShape(groundId, &groundShapeDef, &groundBox);
+}
 
 // 物理坐标转缩放后窗口坐标
 sf::Vector2f DebugDraw_Transform(const b2Vec2& v) {
@@ -107,19 +181,93 @@ void DebugDraw_Segment(b2Vec2 p1, b2Vec2 p2, b2HexColor color, void* ctxVoid) {
     ctx->window->draw(line, 2, sf::PrimitiveType::Lines);
 }
 
-
-void setWall(int x, int y, int w, int h, b2WorldId myWorldId)
+bool ContactDetect(b2WorldId myWorldId, b2BodyId myBodyId)
 {
-    b2BodyDef bdef = b2DefaultBodyDef();
-    bdef.enableSleep = true; //设置物理对象可以休眠
-    bdef.isAwake = true; //设置物理对象处于激活状态
-    bdef.position = b2Vec2{ x / SCALE, y / SCALE };
-    b2BodyId groundId = b2CreateBody(myWorldId, &bdef);
-    b2Polygon groundBox = b2MakeBox(w / SCALE, h / SCALE);//实例化一个多边形对象,半个宽度和半个高度作为参数
-    b2ShapeDef groundShapeDef = b2DefaultShapeDef();
-    b2CreatePolygonShape(groundId, &groundShapeDef, &groundBox);
+    b2ContactEvents contactEvents = b2World_GetContactEvents(myWorldId);
+    //  遍历所有接触事件，如果有一个body是playerBody，说明玩家对象与其他物体发生碰撞
+    for (int i = 0; i < contactEvents.beginCount; i++) {
+        b2ContactBeginTouchEvent e = contactEvents.beginEvents[i];
+        b2ShapeId shapeA = e.shapeIdA;
+        b2ShapeId shapeB = e.shapeIdB;
+        b2BodyId bodyA = b2Shape_GetBody(shapeA);
+        b2BodyId bodyB = b2Shape_GetBody(shapeB);
+        // 检查是否涉及 playerBody
+        if (B2_ID_EQUALS(bodyA, myBodyId) || B2_ID_EQUALS(bodyB, myBodyId)) {
+            isBodyContact = true;
+        }
+    }
+    for (int i = 0; i < contactEvents.endCount; i++) {
+        b2ContactEndTouchEvent e = contactEvents.endEvents[i];
+        b2ShapeId shapeA = e.shapeIdA;
+        b2ShapeId shapeB = e.shapeIdB;
+        b2BodyId bodyA = b2Shape_GetBody(shapeA);
+        b2BodyId bodyB = b2Shape_GetBody(shapeB);
+        // 检查是否涉及 playerBody
+        if (B2_ID_EQUALS(bodyA, myBodyId) || B2_ID_EQUALS(bodyB, myBodyId)) {
+            isBodyContact = false;
+        }
+    }
+    return isBodyContact;
 }
 
+void Input(b2BodyId& myBodyId, sf::RenderWindow& myWindow)
+{
+    b2Vec2 vel = b2Body_GetLinearVelocity(myBodyId);//获取物理对象的线速度
+    float angVel = b2Body_GetAngularVelocity(myBodyId);//获取物理对象的角速度
+    if (Keyboard::isKeyPressed(Keyboard::Scancode::Right))
+        if (vel.x < 20)
+        {
+            b2Body_ApplyForceToCenter(myBodyId, b2Vec2({ 40.0f, 0.0f }), true);//应用一个力到物理对象的中心
+            if (angVel < 15)
+                b2Body_ApplyTorque(myBodyId, 10, true);//应用一个扭矩到物理对象
+        }
+    if (Keyboard::isKeyPressed(Keyboard::Scancode::Left))
+        if (vel.x > -20)
+        {
+            b2Body_ApplyForceToCenter(myBodyId, b2Vec2({ -40.0f, 0.0f }), true);
+            if (angVel > -15)
+                b2Body_ApplyTorque(myBodyId, -10, true);
+        }
+
+    if (Keyboard::isKeyPressed(Keyboard::Scancode::Up))
+    {
+        if (isOnGround && jumpCooldown == 0)
+        {
+            b2Body_ApplyForceToCenter(myBodyId, b2Vec2({ 0.0f, -1200.0f }), true);//向上施加一个力，模拟跳跃
+            jumpCooldown = 15;
+        }
+    }
+    if (jumpCooldown > 0) jumpCooldown--;
+    while (const std::optional event = myWindow.pollEvent())
+    {
+        if (event->is<sf::Event::Closed>())
+        {
+            myWindow.close();
+        }
+
+        if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
+        {
+            if (keyReleased->scancode == sf::Keyboard::Scancode::Enter)
+            {
+                groundShowFlag = !groundShowFlag;
+            }
+            if (keyReleased->scancode == sf::Keyboard::Scancode::Space)
+            {
+                debugDrawFlag = !debugDrawFlag;
+            }
+        }
+    }
+}
+
+void DrawBody(b2BodyId myBodyId, Sprite mySprite, sf::RenderWindow& myWindow)
+{
+    b2Vec2 boxPos = b2Body_GetPosition(myBodyId);
+    b2Rot rotation = b2Body_GetRotation(myBodyId);
+    float angle = b2Rot_GetAngle(rotation);//获取物理对象的角度
+    mySprite.setPosition({ boxPos.x * SCALE, boxPos.y * SCALE });//*SCALE的原因是将Box2D的单位米，转为图形绘制的单位像素
+    mySprite.setRotation(sf::degrees(angle * DEG));				//*DEG的原因是将Box2D的单位弧度，转为图形绘制的单位度
+    myWindow.draw(mySprite);
+}
 
 int main()
 {
@@ -134,57 +282,15 @@ int main()
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }, 32), "Red Ball C++", sf::Style::Default, sf::State::Windowed, contextSettings);//Since SFML is based on OpenGL, its windows are ready for OpenGL calls without any extra effort.
     window.setFramerateLimit(60);
 
-    Texture t, t1, t2, t3, t4, t5, t6;
-    if (!t.loadFromFile("../data/images/ground.png")) {
-        std::cout << "Failed to load ground texture!" << std::endl;
-    }
-    if (!t1.loadFromFile("../data/images/player.png")) {
-        std::cout << "Failed to load player texture!" << std::endl;
-    }
-    if (!t2.loadFromFile("../data/images/objects1.png")) {
-        std::cout << "Failed to load objects1 texture!" << std::endl;
-    }
-    if (!t3.loadFromFile("../data/images/objects2.png")) {
-        std::cout << "Failed to load objects2 texture!" << std::endl;
-    }
-    if (!t4.loadFromFile("../data/images/platform.png")) {
-        std::cout << "Failed to load platform texture!" << std::endl;
-    }
-    if (!t5.loadFromFile("../data/images/flag.png")) {
-        std::cout << "Failed to load flag texture!" << std::endl;
-    }
-    if (!t6.loadFromFile("../data/images/back.png")) {
-        std::cout << "Failed to load background texture!" << std::endl;
-    }
-
-    t1.setSmooth(true);//因为要做物理接触，这3个对象的纹理，做下模糊处理
-    t2.setSmooth(true);
-    t3.setSmooth(true);
-
-    Sprite sGround(t), sPlayer(t1), sBox(t2), sStone(t2), sSwing(t3), sPlatform(t4), sFlag(t5), sBackground(t6);
-
-    sBox.setTextureRect(IntRect({ 81,0 }, { 61,61 }));
-    sBox.setOrigin({ 30,30 });
-
-    sPlayer.setTextureRect(IntRect({ 0,160 }, { 32,32 }));
-    sPlayer.setOrigin({ 16,16 });
-
-    sSwing.setTextureRect(IntRect({ 378,0 }, { 28,242 }));
-    sSwing.setOrigin({ 20,121 });
-
-    sStone.setTextureRect(IntRect({ 0,0 }, { 80,80 }));
-    sStone.setOrigin({ 40,40 });
-
-    sGround.setPosition({ 0,320 });
-    sFlag.setPosition({ 587,19 });
+    LoadMediaData();
 
     /////////box2d///////////数值的单位为像素，函数内容会再转为米
-    setWall(400, 490, 2000, 10, worldId);//地面
-    setWall(400, 0, 2000, 1, worldId);//天花板
-    setWall(55, 438, 64, 60, worldId);//左边中高台
-    setWall(710, 435, 100, 60, worldId);//右边中高台
-    setWall(158, 224, 33, 10, worldId);//放石头的台子
-    setWall(608, 114, 33, 10, worldId);//插旗子的高台
+    SetWall(400, 490, 2000, 10, worldId);//地面
+    SetWall(400, 0, 2000, 1, worldId);//天花板
+    SetWall(55, 438, 64, 60, worldId);//左边中高台
+    SetWall(710, 435, 100, 60, worldId);//右边中高台
+    SetWall(158, 224, 33, 10, worldId);//放石头的台子
+    SetWall(608, 114, 33, 10, worldId);//插旗子的高台
 
     // 几何中心坐标为(0,0)
     b2Vec2 vertices[5] = {
@@ -194,12 +300,8 @@ int main()
         {0.0f, 1.2f},
         {-1.0f, 0.2f}
     };
-
-    // If you want a more general convex polygon, you can compute the hull using `b2ComputeHull()`. Then you can
-    // create a polygon from the hull. You can make this rounded as well.
     b2Hull hull = b2ComputeHull(vertices, 5);
     b2Polygon polygon = b2MakePolygon(&hull, 0);
-
 
     b2Polygon shape = b2MakeBox(30 / SCALE, 30 / SCALE);//创建一个形状
 
@@ -250,7 +352,7 @@ int main()
     /////////////////////////
     sdef.density = 1.0f;
     bdef.position = b2Vec2{ 11, 15 };
-    bdef.rotation = b2MakeRot(90 * DEG);//设置物理对象的初始角度
+    bdef.rotation = b2MakeRot(270 / DEG);//设置物理对象的初始角度
     circle.radius = 40 / SCALE;
     b2BodyId swingBody = b2CreateBody(worldId, &bdef);
     shape = b2MakeBox(5 / SCALE, 120 / SCALE);//创建一个长方形的形状
@@ -258,10 +360,6 @@ int main()
     circle.radius = 2 / SCALE;//设置圆形的半径
     circle.center = b2Vec2{ -20 / SCALE, 0 };//设置圆形的中心点
     b2ShapeId swingShapeId2 = b2CreateCircleShape(swingBody, &sdef, &circle);//创建一个圆形形状
-
-    int footContacts = 0;
-    int jumpCooldown = 0;
-    bool groundShowFlag = true;
 
     // 注册绘制回调
     b2DebugDraw debugDraw{};
@@ -286,90 +384,21 @@ int main()
     debugDraw.DrawPointFcn = [](b2Vec2, float, b2HexColor, void*) {};
     debugDraw.DrawStringFcn = [](b2Vec2 p, const char* s, b2HexColor color, void* context) {};
 
-
     while (window.isOpen())
     {
         //Box2D世界的模拟循环开始
         b2World_Step(worldId, 1.0f / 60.f, 4);
 
-        b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
-        //  遍历所有接触事件，如果有一个body是playerBody，说明玩家对象与其他物体发生碰撞
-        for (int i = 0; i < contactEvents.beginCount; i++) {
-            b2ContactBeginTouchEvent e = contactEvents.beginEvents[i];
-            b2ShapeId shapeA = e.shapeIdA;
-            b2ShapeId shapeB = e.shapeIdB;
-            b2BodyId bodyA = b2Shape_GetBody(shapeA);
-            b2BodyId bodyB = b2Shape_GetBody(shapeB);
-            // 检查是否涉及 playerBody
-            if (B2_ID_EQUALS(bodyA, playerBody) || B2_ID_EQUALS(bodyB, playerBody)) {
-                footContacts = 1;
-            }
-        }
-        for (int i = 0; i < contactEvents.endCount; i++) {
-            b2ContactEndTouchEvent e = contactEvents.endEvents[i];
-            b2ShapeId shapeA = e.shapeIdA;
-            b2ShapeId shapeB = e.shapeIdB;
-            b2BodyId bodyA = b2Shape_GetBody(shapeA);
-            b2BodyId bodyB = b2Shape_GetBody(shapeB);
-            // 检查是否涉及 playerBody
-            if (B2_ID_EQUALS(bodyA, playerBody) || B2_ID_EQUALS(bodyB, playerBody)) {
-                footContacts = 0;
-            }
-        }
-        bool onGround = (footContacts > 0);
+        isOnGround = ContactDetect(worldId, playerBody);
 
-        b2Vec2 vel = b2Body_GetLinearVelocity(playerBody);//获取物理对象的线速度
-        float angVel = b2Body_GetAngularVelocity(playerBody);//获取物理对象的角速度
-        if (Keyboard::isKeyPressed(Keyboard::Scancode::Right))
-            if (vel.x < 20)
-            {
-                b2Body_ApplyForceToCenter(playerBody, b2Vec2({ 40.0f, 0.0f }), true);//应用一个力到物理对象的中心
-                if (angVel < 15)
-                    b2Body_ApplyTorque(playerBody, 10, true);//应用一个扭矩到物理对象
-            }
-        if (Keyboard::isKeyPressed(Keyboard::Scancode::Left))
-            if (vel.x > -20)
-            {
-                b2Body_ApplyForceToCenter(playerBody, b2Vec2({ -40.0f, 0.0f }), true);
-                if (angVel > -15)
-                    b2Body_ApplyTorque(playerBody, -10, true);
-            }
-
-        if (Keyboard::isKeyPressed(Keyboard::Scancode::Up))
-            if (onGround && jumpCooldown == 0)
-            {
-                b2Body_ApplyForceToCenter(playerBody, b2Vec2({ 0.0f, -1200.0f }), true);//向上施加一个力，模拟跳跃
-                jumpCooldown = 15;
-            }
-        if (jumpCooldown > 0) jumpCooldown--;
+        Input(playerBody, window);//处理用户输入
 
         //////////Draw///////////////
-        // 在渲染绘制之前，调用clear进行清屏
-        window.clear(sf::Color::Black);
-        if (Keyboard::isKeyPressed(Keyboard::Scancode::Space))
-        {
+        window.clear(sf::Color::Black); // 在渲染绘制之前，调用clear进行清屏
+        if (debugDrawFlag == true)
             b2World_Draw(worldId, &debugDraw);//绘制Box2D图形内容
-        }
-
-        while (const std::optional event = window.pollEvent())
-        {
-            if (event->is<sf::Event::Closed>())
-            {
-                window.close();
-            }
-
-            if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
-            {
-                if (keyReleased->scancode == sf::Keyboard::Scancode::Enter)
-                {
-                    groundShowFlag = !groundShowFlag;
-                }
-            }
-        }
-
         if (groundShowFlag == true)
             window.draw(sBackground);
-
         window.draw(sGround);
         window.draw(sFlag);
 
@@ -379,48 +408,14 @@ int main()
         window.draw(sPlatform);
 
         //绘制Box2D的物理对象
-        b2Vec2 boxPos = b2Body_GetPosition(boxBody1);
-        b2Rot rotation = b2Body_GetRotation(boxBody1);
-        float angle = b2Rot_GetAngle(rotation);//获取物理对象的角度
-        sBox.setPosition({ boxPos.x * SCALE, boxPos.y * SCALE });//*SCALE的原因是将Box2D的单位米，转为图形绘制的单位像素
-        sBox.setRotation(sf::degrees(angle * DEG));				//*DEG的原因是将Box2D的单位弧度，转为图形绘制的单位度
-        window.draw(sBox);
-
-        b2Vec2 boxPos2 = b2Body_GetPosition(boxBody2);
-        b2Rot rotation2 = b2Body_GetRotation(boxBody2);
-        float angle2 = b2Rot_GetAngle(rotation2);
-        sBox.setPosition({ boxPos2.x * SCALE, boxPos2.y * SCALE });
-        sBox.setRotation(sf::degrees(angle2 * DEG));
-        window.draw(sBox);
-
-        b2Vec2 boxPos3 = b2Body_GetPosition(boxBody3);
-        b2Rot rotation3 = b2Body_GetRotation(boxBody3);
-        float angle3 = b2Rot_GetAngle(rotation3);
-        sBox.setPosition({ boxPos3.x * SCALE, boxPos3.y * SCALE });
-        sBox.setRotation(sf::degrees(angle3 * DEG));
-        window.draw(sBox);
-
-        b2Vec2 playerPos = b2Body_GetPosition(playerBody);
-        float playerAngle = b2Rot_GetAngle(b2Body_GetRotation(playerBody));
-        sPlayer.setPosition({ playerPos.x * SCALE, playerPos.y * SCALE });
-        sPlayer.setRotation(sf::degrees(playerAngle * DEG));
-        window.draw(sPlayer);
-
-        b2Vec2 stonePos = b2Body_GetPosition(stoneBody);
-        float stoneAngle = b2Rot_GetAngle(b2Body_GetRotation(stoneBody));
-        sStone.setPosition({ stonePos.x * SCALE, stonePos.y * SCALE });
-        sStone.setRotation(sf::degrees(stoneAngle * DEG));
-        window.draw(sStone);
-
-        b2Vec2 swingPos = b2Body_GetPosition(swingBody);
-        float swingAngle = b2Rot_GetAngle(b2Body_GetRotation(swingBody));
-        sSwing.setPosition({ swingPos.x * SCALE, swingPos.y * SCALE });
-        sSwing.setRotation(sf::degrees(swingAngle * DEG));
-        window.draw(sSwing);
-
+        DrawBody(boxBody1, sBox, window);
+        DrawBody(boxBody2, sBox, window);
+        DrawBody(boxBody3, sBox, window);
+        DrawBody(playerBody, sPlayer, window);
+        DrawBody(stoneBody, sStone, window);
+        DrawBody(swingBody, sSwing, window);
         window.display();
     }
-
     b2DestroyWorld(worldId);//销毁Box2D物理世界
     return 0;
 }

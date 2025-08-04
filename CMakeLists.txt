@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(CMakeSFMLProject LANGUAGES CXX)
+project(RedBall LANGUAGES CXX)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
@@ -62,9 +62,9 @@ install(DIRECTORY "data/"
         FILES_MATCHING PATTERN "*"
 )
 
-set(CPACK_PACKAGE_NAME "CMakeSFMLProject")
+set(CPACK_PACKAGE_NAME "RedBall")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_VENDOR "HDU")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "CMake-SFML-Project")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "SFML-Box2D-Project")
 set(CPACK_PACKAGE_CONTACT "contact@example.com")
 include(CPack)
