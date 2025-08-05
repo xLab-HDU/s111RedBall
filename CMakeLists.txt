@@ -8,7 +8,7 @@ option(BUILD_SHARED_LIBS "Build SFML libraries as shared" OFF)
 
 # 查找本地安装的 SFML 开发包
 # set(SFML_STATIC_LIBRARIES TRUE) 
-# find_package(SFML COMPONENTS Graphics Window System Audio Network REQUIRED)
+# find_package(SFML COMPONENTS Graphics Window System REQUIRED)
 
 # 获取SFML源码并构建
 include(FetchContent)
@@ -32,16 +32,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(box2d)
 
-# 添加 main 可执行文件目标
-add_executable(main src/main.cpp)
-target_compile_features(main PRIVATE cxx_std_17)
+add_library(GameLib
+    src/Game.cpp
+    src/DebugDrawUtils.cpp
+)
+target_include_directories(GameLib PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${SFML_INCLUDE_DIR}
+)
 
-target_link_libraries(main
-    PRIVATE
+target_link_libraries(GameLib
+    PUBLIC
         SFML::Graphics
         SFML::Window
         SFML::System
         box2d
+)
+add_executable(main src/main.cpp)
+target_compile_features(main PRIVATE cxx_std_17)
+
+target_link_libraries(main
+    PUBLIC
+        GameLib
 )
 
 # 针对MinGW，静态链接时需要将 libstdc++ 和 libgcc 编译进可执行文件中，避免运行时依赖外部 DLL
