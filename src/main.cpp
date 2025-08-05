@@ -1,8 +1,8 @@
-#include "Game.h"
+#include "RedBall.h"
 
 int main()
 {
-    Game redBallGame;
+    RedBall redBallGame;
     redBallGame.run();
     return 0;
 }

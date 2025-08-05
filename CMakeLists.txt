@@ -33,7 +33,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(box2d)
 
 add_library(GameLib
-    src/Game.cpp
+    src/RedBall.cpp
     src/DebugDrawUtils.cpp
 )
 target_include_directories(GameLib PUBLIC 

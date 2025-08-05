@@ -1,22 +1,10 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
-#include <box2d/box2d.h>
+#include "DebugDrawUtils.h"
 
-const float SCALE = 30.f;
-const float DEG = 57.29577f;
-
-const float DEBUG_DRAW_SCALE = 0.35f;
-const sf::Vector2f DEBUG_DRAW_OFFSET(300, 50);
-
-struct DrawContext {
-    sf::RenderWindow* window;
-    b2DebugDraw* debugDraw;
-};
-
-class Game {
+class RedBall {
 public:
-    Game();
+    RedBall();
     void run();
 
     void loadTextures();

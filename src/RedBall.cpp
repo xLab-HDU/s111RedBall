@@ -1,9 +1,9 @@
-// Game.cpp
-#include "Game.h"
-#include "DebugDrawUtils.h"
+// RedBall.cpp
+#include "RedBall.h"
+
 #include <iostream>
 
-Game::Game()
+RedBall::RedBall()
     : contextSettings(),
     ctx{ &window, &debugDraw },
     textures(),
@@ -19,11 +19,11 @@ Game::Game()
     createWorld();
     createObjects();
 
-    InitDebugDraw(debugDraw, ctx);
+    DebugUtils::InitDebugDraw(debugDraw, ctx);
 
 }
 
-void Game::run() {
+void RedBall::run() {
     while (window.isOpen()) {
         b2World_Step(worldId, 1.0f / 60.f, 4);
         contactDetect();
@@ -33,7 +33,7 @@ void Game::run() {
     b2DestroyWorld(worldId);
 }
 
-void Game::loadTextures() {
+void RedBall::loadTextures() {
     const char* files[] = {
         "../data/images/ground.png",
         "../data/images/player.png",
@@ -54,7 +54,7 @@ void Game::loadTextures() {
     textures[3].setSmooth(true);
 }
 
-void Game::createSprites() {
+void RedBall::createSprites() {
     sGround.setTexture(textures[0], true);
     sPlayer.setTexture(textures[1], true);
     sBox.setTexture(textures[2], true);
@@ -76,13 +76,13 @@ void Game::createSprites() {
     sFlag.setPosition({ 587, 19 });
 }
 
-void Game::createWorld() {
+void RedBall::createWorld() {
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = { 0.0f, 9.8f };
     worldId = b2CreateWorld(&worldDef);
 }
 
-void Game::setWall(int x, int y, int w, int h, b2WorldId worldId) {
+void RedBall::setWall(int x, int y, int w, int h, b2WorldId worldId) {
     b2Polygon shape = b2MakeBox(w / SCALE, h / SCALE);
     b2ShapeDef sdef = b2DefaultShapeDef();
     b2BodyDef bdef = b2DefaultBodyDef();
@@ -91,7 +91,7 @@ void Game::setWall(int x, int y, int w, int h, b2WorldId worldId) {
     b2CreatePolygonShape(bodyId, &sdef, &shape);
 }
 
-void Game::createObjects() {
+void RedBall::createObjects() {
     /////////box2d///////////数值的单位为像素，函数内容会再转为米
     setWall(400, 490, 2000, 10, worldId);//地面
     setWall(400, 0, 2000, 1, worldId);//天花板
@@ -167,7 +167,7 @@ void Game::createObjects() {
     b2ShapeId swingShapeId2 = b2CreateCircleShape(swingBody, &sdef, &circle);//创建一个圆形形状
 }
 
-void Game::contactDetect() {
+void RedBall::contactDetect() {
     b2ContactEvents contactEvents = b2World_GetContactEvents(worldId);
     //  遍历所有接触事件，如果有一个body是playerBody，说明玩家对象与其他物体发生碰撞
     for (int i = 0; i < contactEvents.beginCount; i++) {
@@ -186,7 +186,7 @@ void Game::contactDetect() {
     }
 }
 
-void Game::handleInput() {
+void RedBall::handleInput() {
     while (const std::optional event = window.pollEvent())
     {
         if (event->is<sf::Event::Closed>())
@@ -230,7 +230,7 @@ void Game::handleInput() {
     if (jumpCooldown > 0) jumpCooldown--;
 }
 
-void Game::drawScene() {
+void RedBall::drawScene() {
     window.clear(sf::Color::Black);
     if (debugDrawFlag) {
         b2World_Draw(worldId, &debugDraw);
