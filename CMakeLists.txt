@@ -56,12 +56,12 @@ target_link_libraries(main
         GameLib
 )
 
-# 针对MinGW，静态链接时需要将 libstdc++ 和 libgcc 编译进可执行文件中，避免运行时依赖外部 DLL
-if(CMAKE_CXX_COMPILER_ID MATCHES "MinGW")
-    target_link_libraries(main PRIVATE
-        -static-libgcc
-        -static-libstdc++
-    )
+# 静态链接时需要将 libstdc++ 和 libgcc 编译进可执行文件中，避免运行时依赖外部 DLL
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND UNIX AND NOT APPLE))
+  target_link_libraries(main PRIVATE
+    -static-libgcc
+    -static-libstdc++
+  )
 endif()
 
 # 测试 & 打包
