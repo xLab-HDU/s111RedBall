@@ -62,6 +62,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clan
     -static-libgcc
     -static-libstdc++
   )
+  target_link_options(main PRIVATE
+    "-static"
+    "-Wl,-Bstatic,--whole-archive" -lwinpthread "-Wl,--no-whole-archive"
+  )
 endif()
 
 # 测试 & 打包
