@@ -46,3 +46,10 @@ jobs:
         
     - name: Build
       run: cmake --build build --config Release
+    
+    - name: Run CTest
+      uses: threeal/ctest-action@v1.1.0
+      with:
+        test-dir: build
+        build-config: Release
+        verbose: true
