@@ -83,12 +83,12 @@ void RedBall::createWorld() {
 }
 
 void RedBall::setWall(int x, int y, int w, int h, b2WorldId worldId) {
-    b2Polygon shape = b2MakeBox(w / SCALE, h / SCALE);
-    b2ShapeDef sdef = b2DefaultShapeDef();
-    b2BodyDef bdef = b2DefaultBodyDef();
-    bdef.position = b2Vec2{ x / SCALE, y / SCALE };
-    b2BodyId bodyId = b2CreateBody(worldId, &bdef);
-    b2CreatePolygonShape(bodyId, &sdef, &shape);
+    b2Polygon shape = b2MakeBox(w / SCALE, h / SCALE);//创建一个形状
+    b2ShapeDef sdef = b2DefaultShapeDef();//初始化一个默认的形状定义
+    b2BodyDef bdef = b2DefaultBodyDef();//初始化一个默认的刚体定义
+    bdef.position = b2Vec2{ x / SCALE, y / SCALE };//设置刚体的世界坐标位置
+    b2BodyId bodyId = b2CreateBody(worldId, &bdef);//在世界中创建一个刚体
+    b2CreatePolygonShape(bodyId, &sdef, &shape);//将形状shape与形状定义sdef附着到该刚体上
 }
 
 void RedBall::createObjects() {
@@ -100,6 +100,7 @@ void RedBall::createObjects() {
     setWall(158, 224, 33, 10, worldId);//放石头的台子
     setWall(608, 114, 33, 10, worldId);//插旗子的高台
 
+    // 定义一个点集，作为多边形的顶点
     // 几何中心坐标为(0,0)
     b2Vec2 vertices[5] = {
         {-1.0f, -0.8f},
@@ -108,22 +109,22 @@ void RedBall::createObjects() {
         {0.0f, 1.2f},
         {-1.0f, 0.2f}
     };
-    b2Hull hull = b2ComputeHull(vertices, 5);
-    b2Polygon polygon = b2MakePolygon(&hull, 0);
+    b2Hull hull = b2ComputeHull(vertices, 5);//计算点集中所有点的凸包，移除共线点或近重合点
+    b2Polygon polygon = b2MakePolygon(&hull, 0);//创建一个多边形形状
 
     b2Polygon shape = b2MakeBox(30 / SCALE, 30 / SCALE);//创建一个形状
 
-    b2ShapeDef sdef = b2DefaultShapeDef();
-    sdef.density = 1.0f;
-    sdef.material.restitution = 0.0f;//设置物理对象的材质属性，将弹性系数设为0，只依赖自定义跳跃
-    sdef.enableContactEvents = true;
+    b2ShapeDef sdef = b2DefaultShapeDef();//使用默认形状初始化
+    sdef.density = 1.0f;//设置密度为1.0
+    sdef.material.restitution = 0.0f;//设置刚体的材质属性，将弹性系数设为0，只依赖自定义跳跃
+    sdef.enableContactEvents = true;//开启接触事件
 
-    b2BodyDef bdef = b2DefaultBodyDef();//预定义一个物理对象，或者说设置物理对象的属性
-    bdef.type = b2_dynamicBody;			//活动的对象，或受力作用的对象
-    bdef.position = b2Vec2{ 21, 10 };//设置物理对象的初始位置
+    b2BodyDef bdef = b2DefaultBodyDef();//初始化一个默认的刚体定义
+    bdef.type = b2_dynamicBody;//类型设为动态
+    bdef.position = b2Vec2{ 21, 10 };//设置刚体的初始位置
 
-    body0 = b2CreateBody(worldId, &bdef);
-    b2ShapeId shapeId0 = b2CreatePolygonShape(body0, &sdef, &polygon);
+    body0 = b2CreateBody(worldId, &bdef);//在指定的物理世界中创建刚体
+    b2ShapeId shapeId0 = b2CreatePolygonShape(body0, &sdef, &polygon);//将已生成的多边形附加到刚体body0上
 
     ///////////////////////
     sdef.density = 2.0f;

@@ -85,23 +85,15 @@ namespace DebugUtils {
         ctx->window->draw(line, 2, sf::PrimitiveType::Lines);
     }
 
-    // 创建静态墙体
-    void CreateStaticBox(b2WorldId world, float x, float y, float w, float h) {
-        b2BodyDef bdef = b2DefaultBodyDef();
-        bdef.position = { x / SCALE, y / SCALE };
-        b2BodyId groundId = b2CreateBody(world, &bdef);
-        b2Polygon box = b2MakeBox(w / SCALE, h / SCALE);
-        b2ShapeDef shapeDef = b2DefaultShapeDef();
-        b2CreatePolygonShape(groundId, &shapeDef, &box);
-    }
+ 
 
     // 初始化调试绘图
     void InitDebugDraw(b2DebugDraw& debugDraw, DrawContext& context) {
         debugDraw.context = &context;
-        debugDraw.drawShapes = true; // 绘制形状
+        debugDraw.drawShapes = true; // 绘制刚体形状
         debugDraw.drawGraphColors = true; // 绘制图形颜色
         debugDraw.drawBounds = true;  // 绘制包围盒
-        debugDraw.drawMass = true;//绘制动态物体的质量和质心
+        debugDraw.drawMass = true;//绘制动态刚体的质心
 
         // 必须初始化所有函数指针，哪怕是空函数
         debugDraw.DrawPolygonFcn = DrawPolygonOutline;
