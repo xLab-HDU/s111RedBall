@@ -38,7 +38,6 @@ add_library(GameLib
 )
 target_include_directories(GameLib PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${SFML_INCLUDE_DIR}
 )
 
 target_link_libraries(GameLib
