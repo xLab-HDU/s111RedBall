@@ -70,8 +70,8 @@ endif()
 
 add_custom_command(TARGET main POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/data # 源路径：项目根目录下的data文件夹
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data  # 目标路径：build所在目录下的data文件夹
+    ${CMAKE_SOURCE_DIR}/data
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data  
     COMMENT "Copying data directory to output directory"
 )
 
