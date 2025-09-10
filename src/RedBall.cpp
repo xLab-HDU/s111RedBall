@@ -35,13 +35,13 @@ void RedBall::run() {
 
 void RedBall::loadTextures() {
     const char* files[] = {
-        "../data/images/ground.png",
-        "../data/images/player.png",
-        "../data/images/objects1.png",
-        "../data/images/objects2.png",
-        "../data/images/platform.png",
-        "../data/images/flag.png",
-        "../data/images/back.png"
+        "./data/images/ground.png",
+        "./data/images/player.png",
+        "./data/images/objects1.png",
+        "./data/images/objects2.png",
+        "./data/images/platform.png",
+        "./data/images/flag.png",
+        "./data/images/back.png"
     };
 
     for (int i = 0; i < 7; ++i) {
